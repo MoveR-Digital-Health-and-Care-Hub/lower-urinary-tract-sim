@@ -3,6 +3,8 @@
 ## Overview
 This repository contains a Python-based model that simulates the dynamics of the bladder, sphincter, and kidney, using normalised neural signals to predict pressure and volume of the bladder.
 
+For more detailed mathematical explanations, please refer to the paper: [An Open-Source Neurodynamic Model of the Bladder](https://doi.org/10.1101/2024.11.21.624716). DOI: [10.1101/2024.11.21.624716](https://doi.org/10.1101/2024.11.21.624716)
+
 ## Key Features
 - **Stochastic Kidney Function**: Reflects natural fluctuations in urine production throughout the day, incorporating randomness to account for biological variability.
 - **Neural Input Modeling**: : Features a built-in parameter-based model to simulate neural signals from the brain. This allows for simple modeling of neurological conditions and their effects on the lower urinary tract, as well as the use of external neural models to stimulate the detrusor and sphincter muscles.
