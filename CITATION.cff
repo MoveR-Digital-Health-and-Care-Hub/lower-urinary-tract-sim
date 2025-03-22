@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "An Open-Source Neurodynamic Model of the Lower Urinary Tract"
+authors:
+  - family-names: Lister
+    given-names: Elliot
+    orcid: "https://orcid.org/0009-0002-6008-0287"
+  - family-names: McConnell-Trevillion
+    given-names: Aidan
+    orcid: "https://orcid.org/0009-0004-0604-5768"
+date-released: 2024-11-21
+doi: 10.1101/2024.11.21.624716
+repository-code: https://github.com/MoveR-Digital-Health-and-Care-Hub/lower-urinary-tract-sim
+license: MIT
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Lister
+      given-names: Elliot
+      orcid: "https://orcid.org/0009-0002-6008-0287"
+    - family-names: McConnell-Trevillion
+      given-names: Aidan
+      orcid: "https://orcid.org/0009-0004-0604-5768"
+    - family-names: Jabbari
+      given-names: Milad
+      orcid: "https://orcid.org/0000-0001-7127-9115"
+    - family-names: Erfanian
+      given-names: Abbas
+      orcid: "https://orcid.org/0000-0003-0128-4474"
+    - family-names: Nazarpour
+      given-names: Kianoush
+      orcid: "https://orcid.org/0000-0003-4217-0254"
+  doi: 10.1101/2024.11.21.624716
+  journal: "bioRxiv"
+  title: "An Open-Source Neurodynamic Model of the Bladder"
+  year: 2024

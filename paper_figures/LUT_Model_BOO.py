@@ -2,16 +2,18 @@
 Lower Urinary Tract Model Simulation
 ====================================
 This module contains the implementation of the bladder, sphincter, and kidney dynamics simulation, 
-using normalised neural signals to predict pressure and volume. 
+using normalised neural signals to predict pressure and volume. This version is modified to include
+a greater urethral resistance to simulate bladder outlet obstruction.
 """ 
 __author__ = "Elliot Lister"
-__version__ = "1.0.0" 
+__version__ = "1.1.0" 
 __license__ = "MIT"
 
 # Import Libraries
 import pandas as pd
 import numpy as np 
 from scipy import optimize
+
 
 # LUT Model
 class LUT:
@@ -55,8 +57,8 @@ class LUT:
         'r_optS' : 4.8 * 10 ** -3,
         'r_0D' : 2.7 * 10 ** -2,
         'r_0S' : 4.8 * 10 ** -3,
-        'R_1' : 3.0 * 10 ** 8,
-        'R_2' : 2.4 * 10 ** 8,
+        'R_1' : 15.0 * 10 ** 8,
+        'R_2' : 12.0 * 10 ** 8,
         'sigma_isoD' : 4.0 * 10 ** 5,
         'sigma_isoS' : 2.0 * 10 ** 5,
         'tau_D' : 1.0,
@@ -70,6 +72,7 @@ class LUT:
 
         self.bladder_args['max_V_B'] = 5 * 10 ** -4
         self.bladder_args['voiding_threshold'] = 1 * self.bladder_args['max_V_B']
+        self.bladder_args['pressure_threshold'] = 5.3669 * 10 ** 3
         self.bladder_args['neuron_threshold'] = 0.50*self.bladder_args['voiding_threshold']
         self.bladder_args['filling_phase_I'] = 0.04 * self.bladder_args['max_V_B']
         self.bladder_args['filling_phase_II'] = 0.75 * self.bladder_args['max_V_B']
@@ -278,12 +281,17 @@ class LUT:
     def is_voiding(self):
         if self.voiding and self.V_B < 1 * 10 ** -8:
             return False # Reset voiding if bladder is empty
-        elif self.V_B >= self.bladder_args['voiding_threshold']:
+        elif self.trigger_metric == 'pressure' and self.p_D >= self.bladder_args['pressure_threshold']:
             return True # If pressure exceeds threshold, voiding
+        elif self.V_B >= self.bladder_args['voiding_threshold']:
+            return True # If volume exceeds threshold, voiding
         else:
             return self.voiding # Otherwise, maintain voiding state
 
-    def process_neural_input(self, maxTime, dT, noise=1, V_unit='m^3', p_unit='Pa', verbose=False):
+    def process_neural_input(self, maxTime, dT, noise=1, V_unit='m^3', p_unit='Pa', verbose=False, seed=None, trigger_metric='pressure'):
+        if seed is not None:
+            np.random.seed(seed)
+        self.trigger_metric = trigger_metric # Set trigger metric for voiding - pressure or volume
         self.Q_in = self.bladder_args['C_Qin']
         self.noise = noise
         datadict = [{'V_B': self.V_B, 'f_aD_s': self.f_aD_s, 'f_aS_s': self.f_aS_s, 'r_U': self.r_U, 'Q': self.Q, 'p_D': self.p_D, 'p_S': self.p_S, 'Q_in': self.Q_in}]
@@ -328,6 +336,8 @@ class LUT:
         # Convert units if required
         if V_unit == 'ml':
             df['V_B'] = df['V_B'] * 10 ** 6
+            df['Q'] = df['Q'] * 10 ** 6
+            df['Q_in'] = df['Q_in'] * 10 ** 6
         if p_unit == 'cmH2O':
             df['p_D'] = df['p_D'] * 0.010197162129779282
             df['p_S'] = df['p_S'] * 0.010197162129779282

@@ -9,6 +9,10 @@ For more detailed mathematical explanations, please refer to the paper: [An Open
 - **Stochastic Kidney Function**: Reflects natural fluctuations in urine production throughout the day, incorporating randomness to account for biological variability.
 - **Neural Input Modeling**: : Features a built-in parameter-based model to simulate neural signals from the brain. This allows for simple modeling of neurological conditions and their effects on the lower urinary tract, as well as the use of external neural models to stimulate the detrusor and sphincter muscles.
 
+## Repository Structure
+*   `model`: Contains the Python code for the LUT model (`LUT_model.py`).
+*   `paper_figures`: Contains a Jupyter notebook (`figures.ipynb`) that reproduces the figures presented in the paper and the experimental data used for validation (`RealBladderData.mat`). This folder also contains two modified versions of the LUT model (`LUT_Model_OAB.py` and `LUT_Model_BOO.py`) alongside a Jupyter notebook (`hypotheses.ipynb`) to reproduce pathological hypotheses presented in the paper.
+
 ## Installation
 Clone the repository and install the required dependencies:
 
@@ -20,7 +24,7 @@ pip install -r requirements.txt
 
 ## Use
 ```python
-import LUT_Model as model
+from model import LUT_Model as model
 
 dT = 0.1 # Time Step
 maxTime = 300 # Seconds
@@ -40,6 +44,10 @@ data = LUT.process_neural_input(maxTime, dT)
 - `p_unit` (default = 'Pa', supports: 'Pa', 'cmH2O'): Unit for pressure measurements.
 
 - `verbose` (default = False): When enabled (set to True), provides simple progress updates (e.g., 'Progress: X%'), which can be useful for monitoring the completion status of long-running simulations.
+
+- `seed` (default = None): When provided a numerical seed (e.g. 42), the random noise will be reproducible between LUT model instances.
+
+- `trigger_metric` (default = 'pressure', supports: 'pressure', 'volume'): Used to determine which metric triggers voiding, based on their respective thresholds.
 
 ### Example Output of `data`
 
