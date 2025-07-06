@@ -5,7 +5,7 @@ This module contains the implementation of the bladder, sphincter, and kidney dy
 using normalised neural signals to predict pressure and volume. 
 """ 
 __author__ = "Elliot Lister"
-__version__ = "1.1.0" 
+__version__ = "1.2.0" 
 __license__ = "MIT"
 
 # Import Libraries
@@ -56,6 +56,7 @@ class LUT:
         'r_optS' : 4.8 * 10 ** -3,
         'r_0D' : 2.7 * 10 ** -2,
         'r_0S' : 4.8 * 10 ** -3,
+        'r_U_max' : 5 * 10 ** -3,
         'R_1' : 3.0 * 10 ** 8,
         'R_2' : 2.4 * 10 ** 8,
         'sigma_isoD' : 4.0 * 10 ** 5,
@@ -68,14 +69,36 @@ class LUT:
         'V_tissueD' : 2.0 * 10 ** -5,
         'tissue_pressed_in_BN' : False
         }
+        self.kidney_args = {
+        # Kidney Constants
+        'kidney_a' : 0.00625,
+        'kidney_b' : 2 * np.pi / 24,
+        'kidney_c' : 0.017, 
+        'kidney_o' : 8 * 2 * np.pi / 24 * (60 * 60),
+        }
+        self.neural_args = {
+        # Neural Constants
+        'parasympathetic_a' : 0.8,
+        'parasympathetic_b' : 1.0,
+        'parasympathetic_c' : 0.1,
+        'parasympathetic_d' : 0.04,
+        'parasympathetic_w_voiding' : 0.6,
+        'parasympathetic_fullness_comp' : 0.15,
+        'sympathetic_a' : 0.6,
+        'sympathetic_b' : 0.8,
+        'sympathetic_c' : 0.08,
+        'sympathetic_d' : 0.1,
+        'sympathetic_w_voiding' : 0,
+        'somatic_a' : 0.5,
+        'somatic_b' : 1,
+        'somatic_c' : 0.1,
+        'somatic_d' : 0,
+        'somatic_w_voiding' : 0.1,
+        }
 
         self.bladder_args['max_V_B'] = 5 * 10 ** -4
         self.bladder_args['voiding_threshold'] = 1 * self.bladder_args['max_V_B']
         self.bladder_args['pressure_threshold'] = 5.3669 * 10 ** 3
-        self.bladder_args['neuron_threshold'] = 0.50*self.bladder_args['voiding_threshold']
-        self.bladder_args['filling_phase_I'] = 0.04 * self.bladder_args['max_V_B']
-        self.bladder_args['filling_phase_II'] = 0.75 * self.bladder_args['max_V_B']
-        self.bladder_args['filling_phase_III'] = 0.9 * self.bladder_args['max_V_B']
 
         self.n = 1
         self.noise = 1
@@ -110,11 +133,8 @@ class LUT:
         """
         # Stochastic inflow
         ## Parameters
-        a = 0.00625
-        b = 2 * np.pi / 24
-        c = 0.017
-        p = 1/(60*60)
-        o = 8 * 2 * np.pi / 24 * 1/p
+        a, b, c, o = self.kidney_args['kidney_a'], self.kidney_args['kidney_b'], self.kidney_args['kidney_c'], self.kidney_args['kidney_o']
+        p = 1 / (60 * 60)
         Q = a * np.sin(p * (b * t - o)) + c # Stochastic inflow in ml/s
 
         # Noise
@@ -237,43 +257,45 @@ class LUT:
 
     def update_sympathetic_input(self):
         if self.voiding:
-            w = 0
+            w = self.neural_args['sympathetic_w_voiding']
         else:
             # Gaussian
             fullness = self.V_B / self.bladder_args['max_V_B']
-            a = 0.6
-            b = 0.8
-            c = 0.08
-            d = 0.1
+            a, b, c, d = (self.neural_args['sympathetic_a'],
+                          self.neural_args['sympathetic_b'],
+                          self.neural_args['sympathetic_c'],
+                          self.neural_args['sympathetic_d'])
+            # Gaussian function for sympathetic input
             s = a * np.exp(-((fullness - b) ** 2) / (2 * c ** 2)) + d
             w = s
         return max(min(w, 1), 0)
     
     def update_parasympathetic_input(self):
         if self.voiding:
-            w = 0.6
+            w = self.neural_args['parasympathetic_w_voiding']
         else:
             # Gaussian
             fullness = self.V_B / self.bladder_args['max_V_B']
-            a = 0.8
-            b = 1
-            c = 0.1
-            d = 0.04
-            linear_comp = fullness * 0.15
+            a, b, c, d = (self.neural_args['parasympathetic_a'],
+                          self.neural_args['parasympathetic_b'],
+                          self.neural_args['parasympathetic_c'],
+                          self.neural_args['parasympathetic_d'])
+            linear_comp = fullness * self.neural_args['parasympathetic_fullness_comp']
             s = a * np.exp(-((fullness - b) ** 2) / (2 * c ** 2)) + d + linear_comp
             w = s
         return max(min(w, 1), 0)
 
     def update_somatic_input(self):
         if self.voiding:
-            w = 0.1
+            w = self.neural_args['somatic_w_voiding']
         else:
             # Gaussian
-            a = 0.5
-            b = 1
-            c = 0.1
-            d = 0
-            s = a * (1 - (np.exp(-((self.r_U - b) ** 2) / (2 * c ** 2)) + d))
+            a, b, c, d = (self.neural_args['somatic_a'],
+                          self.neural_args['somatic_b'],
+                          self.neural_args['somatic_c'],
+                          self.neural_args['somatic_d'])
+            openness = self.r_U / self.bladder_args['r_U_max']
+            s = a * (1 - (np.exp(-((openness - b) ** 2) / (2 * c ** 2)) + d))
             w = s
         return max(min(w, 1), 0)
         
@@ -293,14 +315,28 @@ class LUT:
         self.trigger_metric = trigger_metric # Set trigger metric for voiding - pressure or volume
         self.Q_in = self.bladder_args['C_Qin']
         self.noise = noise
-        datadict = [{'V_B': self.V_B, 'f_aD_s': self.f_aD_s, 'f_aS_s': self.f_aS_s, 'r_U': self.r_U, 'Q': self.Q, 'p_D': self.p_D, 'p_S': self.p_S, 'Q_in': self.Q_in}]
         self.bladder_args['dT'] = dT
         
         ts = np.arange(0, maxTime, dT)
 
         self.progress = 0
 
-        for t in ts:
+        # Preallocate arrays for efficiency
+        num_steps = len(ts)
+        v_b_hist = np.zeros(num_steps)
+        f_ad_s_hist = np.zeros(num_steps)
+        f_as_s_hist = np.zeros(num_steps)
+        r_u_hist = np.zeros(num_steps)
+        q_hist = np.zeros(num_steps)
+        p_d_hist = np.zeros(num_steps)
+        p_s_hist = np.zeros(num_steps)
+        q_in_hist = np.zeros(num_steps)
+        w_e_s_hist = np.zeros(num_steps)
+        w_i_s_hist = np.zeros(num_steps)
+        w_s_s_hist = np.zeros(num_steps)
+        voiding_hist = np.zeros(num_steps)
+
+        for i, t in enumerate(ts):
             self.t = t
             self.voiding = self.is_voiding()
 
@@ -322,15 +358,40 @@ class LUT:
             self.r_U = self.fmap(self.V_B, self.f_aD_s, self.f_aS_s)
             self.Q = self.get_Q(self.f_aS_s, self.r_U)
 
-            # Append data to dictionary at each time step
-            datadict.append({'t': t, 'V_B': self.V_B, 'f_aD_s': self.f_aD_s, 'f_aS_s': self.f_aS_s, 'r_U': self.r_U, 'Q': self.Q, 'p_D': self.p_D, 'p_S': self.p_S, 'Q_in': self.Q_in, 'w_e_s': self.w_e_s, 'w_i_s': self.w_i_s, 'w_s_s': self.w_s_s, 'voiding': self.voiding})
-            
+            # Store results in preallocated arrays
+            v_b_hist[i] = self.V_B
+            f_ad_s_hist[i] = self.f_aD_s
+            f_as_s_hist[i] = self.f_aS_s
+            r_u_hist[i] = self.r_U
+            q_hist[i] = self.Q
+            p_d_hist[i] = self.p_D
+            p_s_hist[i] = self.p_S
+            q_in_hist[i] = self.Q_in
+            w_e_s_hist[i] = self.w_e_s
+            w_i_s_hist[i] = self.w_i_s
+            w_s_s_hist[i] = self.w_s_s
+            voiding_hist[i] = self.voiding
+
             if verbose:
                 self.progress = t / maxTime
                 print(f"Progress: {self.progress * 100:.2f}%", end='\r')
 
         # Build DataFrame to export results
-        df = pd.DataFrame(datadict)
+        df = pd.DataFrame({
+            't': ts, 
+            'V_B': v_b_hist, 
+            'f_aD_s': f_ad_s_hist, 
+            'f_aS_s': f_as_s_hist, 
+            'r_U': r_u_hist, 
+            'Q': q_hist, 
+            'p_D': p_d_hist, 
+            'p_S': p_s_hist, 
+            'Q_in': q_in_hist, 
+            'w_e_s': w_e_s_hist, 
+            'w_i_s': w_i_s_hist, 
+            'w_s_s': w_s_s_hist, 
+            'voiding': voiding_hist
+        })
 
         # Convert units if required
         if V_unit == 'ml':
